@@ -1,9 +1,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Pipes.Random
-    ( randomSample
-    , ReservoirT, runReservoirT
+    ( -- * Random 'Pipes.Producer's
+      random
+    , randomR
+
+      -- * Random sampling
+    , randomSample
     , runReservoirP
     , execReservoirP
+
+      -- * Internals
+    , ReservoirT, runReservoirT
     ) where
 
 --------------------------------------------------------------------------------
@@ -33,11 +40,13 @@ newtype ReservoirT a m r
 
 
 --------------------------------------------------------------------------------
+-- | Produce an infinite stream of random values.
 random :: (Monad m, Random a, RandomGen g) => g -> () -> Pipes.Producer a m ()
 random r = Pipes.fromList (Random.randoms r)
 
 
 --------------------------------------------------------------------------------
+-- | Produce an infinite stream of random values within a range.
 randomR
     :: (Monad m, Random a, RandomGen g)
     => (a, a) -> g -> () -> Pipes.Producer a m ()
@@ -45,6 +54,9 @@ randomR range r = Pipes.fromList (Random.randomRs range r)
 
 
 --------------------------------------------------------------------------------
+-- | @randomSample n@ takes n random samples from upstream, aggregating them in
+-- 'ReservoirT'. Run the resulting proxy with 'runReservoirP' or
+-- 'execReservoirP' to access the final @n@ random samples.
 randomSample
     :: (Monad m, RandomGen g)
     => Int -> g -> () -> Pipes.Consumer a (ReservoirT a m) g
@@ -63,6 +75,8 @@ randomSample n r () = establishReservoir *> thread (map go [n..]) r
 
 
 --------------------------------------------------------------------------------
+-- | Run a 'ReservoirT' 'Pipes.Proxy' to gain access to the final 'RandomGen'
+-- and a list of random values.
 runReservoirP
     :: Monad m
     => Pipes.Proxy a' a b' b (ReservoirT a m) g
@@ -73,6 +87,8 @@ runReservoirP =
 
 
 --------------------------------------------------------------------------------
+-- | Run a 'ReservoirT' 'Pipes.Proxy' discarding the final 'RandomGen' and
+-- returning the list of random values.
 execReservoirP
     :: Monad m
     => Pipes.Proxy a' a b' b (ReservoirT a m) g
