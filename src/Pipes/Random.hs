@@ -14,7 +14,7 @@ import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Monoid (Dual(..))
 import Data.Foldable (forM_)
-import System.Random (RandomGen, randomR)
+import System.Random (Random, RandomGen)
 
 
 --------------------------------------------------------------------------------
@@ -22,12 +22,26 @@ import qualified Control.Monad.Trans.Writer.Strict as Writer
 import qualified Data.IntMap as IntMap
 import qualified Pipes as Pipes
 import qualified Pipes.Lift as Pipes
+import qualified Pipes.Prelude as Pipes
+import qualified System.Random as Random
 
 
 --------------------------------------------------------------------------------
 newtype ReservoirT a m r
     = ReservoirT { runReservoirT :: Writer.WriterT (Dual (IntMap.IntMap a)) m r }
   deriving (Monad, MonadTrans, MonadIO)
+
+
+--------------------------------------------------------------------------------
+random :: (Monad m, Random a, RandomGen g) => g -> () -> Pipes.Producer a m ()
+random r = Pipes.fromList (Random.randoms r)
+
+
+--------------------------------------------------------------------------------
+randomR
+    :: (Monad m, Random a, RandomGen g)
+    => (a, a) -> g -> () -> Pipes.Producer a m ()
+randomR range r = Pipes.fromList (Random.randomRs range r)
 
 
 --------------------------------------------------------------------------------
@@ -42,12 +56,10 @@ randomSample n r () = establishReservoir *> thread (map go [n..]) r
         forM_ [1 .. n] $ \i -> Pipes.request () >>= (i .=)
 
     go t g =
-        let (m, g') = randomR (1, t) g
+        let (m, g') = Random.randomR (1, t) g
         in g' <$ (Pipes.request () >>= when (m < n) . (m .=))
 
     i .= x = lift . ReservoirT . Writer.tell . Dual $ IntMap.singleton i x
-
-    thread = foldr (>=>) return
 
 
 --------------------------------------------------------------------------------
@@ -68,3 +80,8 @@ execReservoirP
 execReservoirP =
     fmap (IntMap.elems . getDual) . Pipes.execWriterP .
         hoist runReservoirT
+
+
+--------------------------------------------------------------------------------
+thread :: Monad m => [a -> m a] -> a -> m a
+thread = foldr (>=>) return
