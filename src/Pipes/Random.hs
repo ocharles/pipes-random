@@ -1,13 +1,17 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Pipes.Random
     ( randomSample
-    , runRandomP
-    , execRandomP
+    , ReservoirT, runReservoirT
+    , runReservoirP
+    , execReservoirP
     ) where
 
 --------------------------------------------------------------------------------
 import Control.Applicative ((*>), (<$))
 import Control.Monad ((>=>), when)
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.Morph (hoist)
+import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.IO.Class (MonadIO(..))
 import Data.Monoid (Dual(..))
 import Data.Foldable (forM_)
 import System.Random (RandomGen, randomR)
@@ -21,10 +25,15 @@ import qualified Pipes.Lift as Pipes
 
 
 --------------------------------------------------------------------------------
+newtype ReservoirT a m r
+    = ReservoirT { runReservoirT :: Writer.WriterT (Dual (IntMap.IntMap a)) m r }
+  deriving (Monad, MonadTrans, MonadIO)
+
+
+--------------------------------------------------------------------------------
 randomSample
     :: (Monad m, RandomGen g)
-    => Int -> g
-    -> () -> Pipes.Consumer a (Writer.WriterT (Dual (IntMap.IntMap a)) m) g
+    => Int -> g -> () -> Pipes.Consumer a (ReservoirT a m) g
 randomSample n r () = establishReservoir *> thread (map go [n..]) r
 
   where
@@ -36,22 +45,26 @@ randomSample n r () = establishReservoir *> thread (map go [n..]) r
         let (m, g') = randomR (1, t) g
         in g' <$ (Pipes.request () >>= when (m < n) . (m .=))
 
-    i .= x = lift $ Writer.tell (Dual $ IntMap.singleton i x)
+    i .= x = lift . ReservoirT . Writer.tell . Dual $ IntMap.singleton i x
 
     thread = foldr (>=>) return
 
 
 --------------------------------------------------------------------------------
-runRandomP
+runReservoirP
     :: Monad m
-    => Pipes.Proxy a' a b' b (Writer.WriterT (Dual (IntMap.IntMap a)) m) g
+    => Pipes.Proxy a' a b' b (ReservoirT a m) g
     -> Pipes.Proxy a' a b' b m (g, [a])
-runRandomP = fmap (fmap (IntMap.elems . getDual)) . Pipes.runWriterP
+runReservoirP =
+    fmap (fmap (IntMap.elems . getDual)) . Pipes.runWriterP .
+        hoist runReservoirT
 
 
 --------------------------------------------------------------------------------
-execRandomP
+execReservoirP
     :: Monad m
-    => Pipes.Proxy a' a b' b (Writer.WriterT (Dual (IntMap.IntMap a)) m) g
+    => Pipes.Proxy a' a b' b (ReservoirT a m) g
     -> Pipes.Proxy a' a b' b m [a]
-execRandomP = fmap (IntMap.elems . getDual) . Pipes.execWriterP
+execReservoirP =
+    fmap (IntMap.elems . getDual) . Pipes.execWriterP .
+        hoist runReservoirT
