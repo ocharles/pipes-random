@@ -1,4 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-| @pipes-random@ provides 'Pipes.Producer's for generating infinite streams of
+    'Random' data, and also an implementation of reservoir sampling to take @n@
+    samples from any upstream producer. The implementation for reservoir sampling
+    is the first algorithm in Jeffrey Vitter's paper \"Random Sampling with a
+    Reservoir\" - <http://www.cs.umd.edu/~samir/498/vitter.pdf>.
+-}
 module Pipes.Random
     ( -- * Random 'Pipes.Producer's
       random
