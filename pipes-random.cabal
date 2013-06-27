@@ -1,0 +1,25 @@
+name:                pipes-random
+version:             0.1.0.0
+--synopsis:            Stream the contents of tar files
+-- description:
+--homepage:            http://github.com/ocharles/pipes-tar.git
+license:             MIT
+license-file:        LICENSE
+author:              Oliver Charles
+maintainer:          ollie@ocharles.org.uk
+-- copyright:
+-- category:
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  exposed-modules: Pipes.Random
+  build-depends:
+    base >= 4.5 && <4.7,
+    pipes >= 4.0,
+    containers >= 0.1,
+    transformers >= 0.0,
+    random >= 1.0
+  hs-source-dirs: src
+  ghc-options: -Wall -fwarn-tabs -funbox-strict-fields -O2
+               -fno-warn-orphans -fno-warn-unused-do-bind
