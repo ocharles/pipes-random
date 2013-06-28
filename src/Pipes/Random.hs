@@ -85,8 +85,8 @@ randomSample n r () = establishReservoir *> thread (map go [n..]) r
 -- and a list of random values.
 runReservoirP
     :: Monad m
-    => Pipes.Proxy a' a b' b (ReservoirT a m) g
-    -> Pipes.Proxy a' a b' b m (g, [a])
+    => Pipes.Proxy a' a b' b (ReservoirT v m) g
+    -> Pipes.Proxy a' a b' b m (g, [v])
 runReservoirP =
     fmap (fmap (IntMap.elems . getDual)) . Pipes.runWriterP .
         hoist runReservoirT
@@ -97,8 +97,8 @@ runReservoirP =
 -- returning the list of random values.
 execReservoirP
     :: Monad m
-    => Pipes.Proxy a' a b' b (ReservoirT a m) g
-    -> Pipes.Proxy a' a b' b m [a]
+    => Pipes.Proxy a' a b' b (ReservoirT v m) g
+    -> Pipes.Proxy a' a b' b m [v]
 execReservoirP =
     fmap (IntMap.elems . getDual) . Pipes.execWriterP .
         hoist runReservoirT
