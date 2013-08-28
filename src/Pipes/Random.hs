@@ -35,7 +35,6 @@ import qualified Control.Monad.Trans.Writer.Strict as Writer
 import qualified Data.IntMap as IntMap
 import qualified Pipes as Pipes
 import qualified Pipes.Lift as Pipes
-import qualified Pipes.Prelude as Pipes
 import qualified System.Random as Random
 
 
@@ -47,16 +46,16 @@ newtype ReservoirT a m r
 
 --------------------------------------------------------------------------------
 -- | Produce an infinite stream of random values.
-random :: (Monad m, Random a, RandomGen g) => g -> () -> Pipes.Producer a m ()
-random r = Pipes.fromList (Random.randoms r)
+random :: (Monad m, Random a, RandomGen g) => g -> Pipes.Producer a m ()
+random r = Pipes.each (Random.randoms r)
 
 
 --------------------------------------------------------------------------------
 -- | Produce an infinite stream of random values within a range.
 randomR
     :: (Monad m, Random a, RandomGen g)
-    => (a, a) -> g -> () -> Pipes.Producer a m ()
-randomR range r = Pipes.fromList (Random.randomRs range r)
+    => (a, a) -> g -> Pipes.Producer a m ()
+randomR range r = Pipes.each (Random.randomRs range r)
 
 
 --------------------------------------------------------------------------------
@@ -65,17 +64,17 @@ randomR range r = Pipes.fromList (Random.randomRs range r)
 -- 'execReservoirP' to access the final @n@ random samples.
 randomSample
     :: (Monad m, RandomGen g)
-    => Int -> g -> () -> Pipes.Consumer a (ReservoirT a m) g
-randomSample n r () = establishReservoir *> thread (map go [n..]) r
+    => Int -> g -> Pipes.Consumer a (ReservoirT a m) g
+randomSample n r = establishReservoir *> thread (map go [n..]) r
 
   where
 
     establishReservoir =
-        forM_ [1 .. n] $ \i -> Pipes.request () >>= (i .=)
+        forM_ [1 .. n] $ \i -> Pipes.await >>= (i .=)
 
     go t g =
         let (m, g') = Random.randomR (1, t) g
-        in g' <$ (Pipes.request () >>= when (m < n) . (m .=))
+        in g' <$ (Pipes.await >>= when (m < n) . (m .=))
 
     i .= x = lift . ReservoirT . Writer.tell . Dual $ IntMap.singleton i x
 
